@@ -1,4 +1,12 @@
+/**
+ * 官方中文文档根地址，内容链接统一由此派生。
+ * @type {string}
+ */
 const DOCS = 'https://herdr.dev/zh-cn/docs/';
+/**
+ * 阅读、场景题和速查共用的官方依据地址。
+ * @type {{quick: string, concepts: string, keyboard: string, config: string, cli: string, recovery: string, remote: string, machines: string}}
+ */
 const source = {
   quick: `${DOCS}quick-start/`,
   concepts: `${DOCS}concepts/`,
@@ -10,6 +18,10 @@ const source = {
   machines: `${DOCS}connecting-machines/`,
 };
 
+/**
+ * 七篇静态原理阅读，只有关联题答对才获得完成记录。
+ * @type {import('./types.js').Reading[]}
+ */
 export const READINGS = [
   {
     id: 'reading-first-run', group: '入门与概念', type: 'reading',
@@ -198,6 +210,10 @@ export const READINGS = [
   },
 ];
 
+/**
+ * 十八道场景回忆题，答案公开展示不会直接授予掌握记录。
+ * @type {import('./types.js').Question[]}
+ */
 export const QUESTIONS = [
   {
     id: 'q-first-run', group: '入门与概念', question: '已安装 Herdr，想进入默认会话。最合适的入口是什么？',
@@ -291,6 +307,10 @@ export const QUESTIONS = [
   },
 ];
 
+/**
+ * 三十四项精选速查，不宣称完整覆盖原生命令或 API。
+ * @type {import('./types.js').Reference[]}
+ */
 export const REFERENCES = [
   { id: 'ref-help', kind: '快捷键', category: '帮助与模式', title: '查看生效的快捷键', syntax: 'Ctrl+B → ?', description: '默认前缀后按 ? 打开帮助；帮助内按 / 筛选。自定义过键位时以应用内当前绑定为准。', source: source.keyboard },
   { id: 'ref-split-right', kind: '快捷键', category: '窗格', title: '向右分割窗格', syntax: 'Ctrl+B → v', description: '分割当前窗格，在右侧创建窗格；配置动作名为 split_vertical。', source: source.keyboard },
