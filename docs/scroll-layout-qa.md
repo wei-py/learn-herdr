@@ -1,54 +1,74 @@
-# 双飞翼布局与滚动验收
+# 无侧栏布局与滚动验收
 
-## 范围
+## 范围与方法
 
-保持 Herdr 教学状态与自由选课，调整实操页为左索引 / 中央练习 / 右侧指导。以相邻 `learn-helix/src/style.css` 的字体和排版为依据：正文 14px / 1.65 系统无衬线，中文标题 Songti / STSong / Noto Serif CJK / SimSun，英文报头 Georgia，代码 SFMono / Consolas / Liberation Mono。代码正文桌面 15px / 28px，窄屏 14px。背景、墨色、边线与赭红采用相同基准色。
+当前版本使用原生 Vue 3、Pinia、Vite+ 与共享 Base / Layout / Business 组件。网站无左侧课程栏或课程抽屉；保留模拟器内部用于教学的工作区栏，窄屏移到模拟器顶部。字体、设计令牌、地图、右侧指导与相邻 `learn-helix` 统一。
 
-桌面三栏；901–1199px 保留左索引并把指导移到中央之后；≤900px 使用原生 Dialog 课程抽屉，避免三栏挤压。
+BrowserOS neo 在生产预览 `http://localhost:4175/` 实际点击、按键和读取渲染状态。没有直接注入课程目标或伪造成功。以下区分浏览器实测、源码约束和不适用项，不把本地构建描述为线上发布。
 
-## 29 条滚动规则
+## 布局与学习行为
 
-| 项目 | 实现 / 适用性 | 核验依据 |
+| 场景 | 实测结果 |
+| --- | --- |
+| 全部实操 | 14 个实操全部通过，覆盖前缀、双向分割、几何焦点、缩放、关闭确认、标签、重命名、工作区、内部侧栏和分离/重连 |
+| 回忆 | 18 道题全部通过；错误或查看答案不增加掌握计数 |
+| 完成进度 | 完整流程后课程 21/21、回忆 18/18；验收结束还原预览原始空记录后为 0/21、0/18，全部卡片仍可进入 |
+| 错误输入 | Ctrl+B / Shift+T 后输入错误中文标签名会真实重命名，但不误判课程完成 |
+| 自定义前缀 | 保存 Ctrl+A 后，旧 Ctrl+B+v 不分割，新 Ctrl+A+v 得到两个窗格，导出前缀同步更新 |
+| 真实导出 | 下载 `herdr-keys.toml` 并通过 TOML 解析器检查 prefix 为 `ctrl+a`；验收文件随后删除 |
+| 地图恢复 | 从 900px 进入练习默认置顶；界面返回恢复 900px 并聚焦选中卡；同 URL 的另一个 400px 历史条目独立恢复 |
+| 速查筛选 | `q=herdr` 得到 16 项；800px → 实操 → 返回仍为 800px 且查询保留；刷新保留查询但普通进入置顶 |
+| 键盘根滚动 | PageDown 后根为 811px、window 为 0；根 focus outline 为 2px、offset 为 -3px |
+| 覆盖层 | 背景 400px 打开/关闭设置后仍为 400px；恢复原 `overflow: clip !important` 与根 `overflow-y: auto !important` |
+| 返回顶部 | 减少动态效果模式下一次操作立即回到 0，焦点回根；计算层级为 200 |
+| 局域网 | HTTP 局域网来源的 `crypto.randomUUID` 不可用时，仍生成 32 位十六进制历史项键；剪贴板不可用时给出手动复制/下载引导 |
+
+| CSS 视口 | 根 clientWidth / scrollWidth | 地图列数 |
 | --- | --- | --- |
-| 单一主滚动区域 | 已实现 | HTML/body 锁定，`scroll-root` 是唯一页面视口；实测 body 高度与视口相等，window/body scrollTop 为 0。 |
-| Router 统一管理 | 已实现 | `navigation.js` 统一 push、replace、popstate、hashchange；业务层没有 window.scrollTo / scrollIntoView。 |
-| 页面级恢复 | 已实现 | 地图 900px → 课程 0 → 地图 900px；后退/前进分别恢复 0 / 900px。 |
-| 明确 scroll-root | 已实现 | `index.html` 持久容器包裹 app，重绘不替换滚动根。 |
-| 局部 scroll-section | 已实现 | 代码具有显式最大高度和 contain 边界；三窗格实测右侧代码高度 141px、内容 198px，局部 overflow:auto。 |
-| Modal / Drawer 独立滚动 | 已实现 | 390px 窄屏帮助 Dialog scrollTop 可到 98px，背景根位置仍为 0；抽屉高度 810px、有独立滚动。 |
-| Overlay 背景锁定 | 已实现 | 原生 Modal/Drawer 打开锁定 body 与根 overflow；坐标点击固定导航打开设置，900px → 锁定 900px → 关闭 900px。演示终端内的小面板不是全屏遮罩，仅限制局部滚动。 |
-| Sticky 滚动容器 | 已实现 | 顶栏位于 scroll-root 内；根滚动 900px 时顶栏 top 为 0。 |
-| Table 横向滚动 | 当前不适用 | 应用没有 table，不新增空表格或无用封装。未来表格必须在局部有界区域内横向溢出。 |
-| Table 固定头/列 | 当前不适用 | 没有表格或固定列，不手写定位假装组件能力。 |
-| 大列表虚拟滚动 | 当前无需启用 | 约定超过 80 项必须使用共享虚拟列表；当前课程 21、速查 34、回忆 18、前缀选项 3，均低于阈值。 |
-| 滚动事件统一封装 | 已实现 | 全站 scroll 事件只在 `scroll.js` 的 observe 中注册；业务订阅返回顶部状态。 |
-| 监听节流 | 已实现 | passive + requestAnimationFrame 合并；测试验证一帧合并与清理待处理帧。 |
-| 局部 smooth | 已实现 | 默认 instant；返回顶部显式 smooth；跳过导航锚点使用 instant，无全局 smooth CSS。 |
-| 减少动画 | 已实现 | 模拟 prefers-reduced-motion:reduce 后点击返回顶部，实际 scrollTo 参数为 instant。 |
-| 统一锚点接口 | 已实现 | skip-link 通过 scrollToAnchor；不使用业务组件 scrollIntoView。 |
-| sticky 偏移 | 已实现 | scroll-margin-top 由 sticky-offset 管理；锚点定位后 main top 与导航 bottom 同为约 79.7px。 |
-| z-200 返回顶部 | 已实现 | 600px 后显示，实际 computed z-index 为 200；点击后 rootTop 为 0。 |
-| 禁止页面横向滚动 | 已实现 | root 横向隐藏，三栏/内部 flex min-width:0；390px 时 root clientWidth 与 scrollWidth 同为 390。 |
-| 移动惯性滚动 | 已配置，真机未测 | 根、局部代码、Dialog/Drawer 设置 touch momentum 与 overscroll 边界；桌面模拟不等于 iOS/Android 真机验证。 |
-| 动态内容高度稳定 | 已实现适用部分 | 演示终端固定有界高度、状态区 min-height、根 scrollbar-gutter:stable；没有 Skeleton 或网络加载内容。 |
-| 数据刷新保留上下文 | 已实现 | preserve 包裹同步重绘；根位置 300px 下连续分割后仍 300px，展开答案保持打开；实际内容变短时自然钳制。 |
-| 错误态保留上下文 | 已实现适用部分 | 无网络请求；模拟重连输入错误，根位置 494px 前后相同，输入文本保留，错误说明就地显示。 |
-| 图片尺寸 | 当前不适用 | 应用没有图片；未添加占位图片。未来图片必须设置宽高或 aspect-ratio。 |
-| 虚拟列表共享封装 | 当前不适用 | 无 >80 项列表，不创建未使用的虚拟滚动基础设施；需要时必须复用共享实现而非各业务重复实现。 |
-| 滚动状态不随意持久化 | 已实现 | 位置只在内存 Map 保存最近 80 条；localStorage 仍仅学习进度和前缀；刷新不复用旧文档位置。 |
-| 长任务性能 | 已观察，不作性能认证 | 浏览器 PerformanceObserver 覆盖一次搜索→课程→返回→前进后退样本，longtask 与无近期输入 layout-shift 均未记录；样本不能证明所有场景零长任务/零 CLS。 |
-| 无障碍 | 已实现并检查 | 根可键盘访问；PageDown 令根位置变化而 windowTop=0；焦点可见，Tab 保留网页导航，抽屉 Esc 后焦点回到打开按钮。 |
-| 恢复和监听清理 | 已实现 | 路由 beforeNavigate 关闭覆盖层；scroll/router.dispose 清理监听、帧和内存缓存；应用生命周期使用 AbortController，pagehide/HMR 清理。 |
+| 1440 × 1000 | 1425 / 1425 | 3 |
+| 768 × 1024 | 753 / 753 | 2 |
+| 390 × 844 | 375 / 375 | 1 |
 
-## 其他实测
+已查看真实桌面与手机宽度截图。手机指导栏落在练习之后，模拟器屏幕按键可完成三窗格操作；body、window 不承担页面滚动，页面无横向溢出。两项目正文均为 14px / 1.65 系统字体，本地宋体标题、Georgia 报头与等宽代码一致。
 
-- 速查搜索 `herdr` 后 16 项，根位置 800px → 课程 0 → 速查 800px，保留查询和 URL；该条目滚到 400px 后浏览器前进/后退恢复 400px。
-- 窄屏抽屉选择另一课后关闭、解除背景锁定，新课程从顶部开始。
-- 两次分割后最终目标仍可完成；分离/输入错误/重新连接后仍保留双窗格。
-- 原生 Dialog/Drawer 由浏览器提供模态焦点约束，不自行制作表格固定、图片加载或网络错误的虚假场景。
+## 29 项滚动规范适用性
 
-## 自动化与限制
+| 规范 | 当前实现与证据 |
+| --- | --- |
+| 单一主容器 | Layout 的 `#scroll-root` 是唯一页面滚动区；body/main 不嵌套滚动。浏览器实测。 |
+| Router 统一管理 | `src/router/index.js` 集中处理进入、返回和历史遍历；业务无 `window.scrollTo`。源码检查。 |
+| 页面级恢复 | 位置按历史项键存于有界内存；地图/速查返回和同 URL 不同条目已实测。 |
+| 明确 scroll-root | `LearningShell.vue` 定义根，业务不创建页面根。源码与浏览器。 |
+| scroll-section | 模拟终端、帮助/配置等长内容限制尺寸、提供局部边界；不替代页面根。 |
+| Modal 独立滚动 | `BaseDialog` 使用独立内容区；已实际打开、取消和确认。无 Drawer 业务。 |
+| 背景锁定 | 引用计数锁定 body/根，完整恢复原 overflow 声明顺序、值、priority 与坐标；已实测。 |
+| Sticky 容器 | 顶栏位于固定应用壳，主滚动根不被额外容器隔断；指导栏绑定对应主根，窄屏取消 sticky。 |
+| 表格横滚 | 无表格业务，不新增空 Table。 |
+| 表格固定 | 无固定表头/固定列需求，不手写模拟实现。 |
+| 大列表虚拟化 | 当前列表未超过 80 项；超过阈值必须复用共享 VirtualList，Helix 设置页已实际使用。 |
+| 统一 Hook | `useLearningScroll` 与 vue-hooks-plus 管理监听；业务未散落页面 scroll 监听。 |
+| 监听节流 | passive 事件和 requestAnimationFrame 合并；卸载取消未完成帧。源码约束。 |
+| 局部 smooth | 仅统一锚点/返回顶部允许动画，不设置全局 smooth。 |
+| 减少动画 | `prefers-reduced-motion` 分支已通过浏览器媒体仿真验证。 |
+| 统一锚点 | 统一控制器处理锚点；业务无 `scrollIntoView`。源码检查。 |
+| Sticky 偏移 | 标题锚点使用 `scroll-margin-top`，避免顶部导航遮挡。 |
+| 返回顶部层级 | 超过 320px 显示，z-200；浏览器已检查。 |
+| 禁止页面横滚 | 根禁横滚，特殊内容局部约束；三种宽度 clientWidth=scrollWidth。 |
+| 移动端惯性 | CSS 保留原生 touch 滚动与局部边界；桌面设备仿真不等于 iOS/Android 真机惯性验收。 |
+| 高度稳定 | 同步课程内容，无异步替换；预览/终端有明确最小高度。未声称完成 CLS 指标测量。 |
+| 刷新保上下文 | 非路由的数据更新由统一 preserve 包裹；筛选保持根，完整刷新按进入策略置顶。无服务端刷新请求。 |
+| 请求失败上下文 | 无远端请求；不存在可制造的接口失败场景。不添加虚假 API 错误中心。 |
+| 图片预留 | 当前没有内容图片，不增加占位图片。 |
+| 统一虚拟列表 | 与 Helix 镜像共享实现，不在业务重复实现窗口化。 |
+| 滚动状态持久化 | 仅控制器内存缓存，最多 80 项；不向 localStorage 写 scrollTop。 |
+| 滚动性能 | rAF/passive、有界缓存和局部尺寸避免持续大计算；没有做长期采样，不声称零长任务。 |
+| 键盘无障碍 | 根 tabindex、可见焦点与 PageDown 实测；选课为原生 button，对话框支持 Escape 与焦点恢复。 |
+| 离开清理 | 作用域清理监听、帧、历史缓存与控制器注册；源码检查。 |
 
-`npm test`：20 项通过，其中原有引擎/进度 7 项，新滚动/路由 13 项。`npm run build`：成功。测试覆盖缓存边界、原始无 hash URL、配对历史事件去重、列表返回、query replace、文档刷新、Overlay 样式优先级与精确位置恢复、rAF 取消及 dispose。
+## 工程检查与边界
 
-未运行原生 Herdr、未做真机触控与软键盘验证。课程列表未来超过 80 项、引入表格/图片/异步请求时，必须重新实施和核验对应目前不适用条目。
+- `pnpm lint`、`pnpm test`、`pnpm build` 均通过；7 项领域测试无失败或跳过。
+- 中文 JSDoc 声明覆盖与标签/类型/参数/返回值校验包含 JS、Vue、配置和测试；另运行有效中文正例及错误类型、漏回调、非法标签、英文说明等负例。
+- 不保留旧 `innerHTML` 渲染器或旧页面滚动实现。静态同步学习应用无鉴权/API/图片/表格，不为了规范表格制造未使用 SDK、Loading 或骨架组件。
+- 本次未重测原生 Herdr 全部命令，也未进行实体手机、任意输入法、长期内存/长任务或 CLS 认证。
+- 预览来源的验收 localStorage 已恢复为原始无记录；仅删除本次生成的下载，未触碰原生配置。没有执行 Git 提交、推送或 Pages 线上部署。

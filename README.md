@@ -1,6 +1,6 @@
 # Herdr 练习报
 
-参照相邻 `learn-helix` 的报纸式阅读与实操体验制作的中文 Herdr 学习站。暖纸色、衬线标题、课程索引、交互布局演示、精选速查与场景回忆；不是终端仿真器或 Herdr 管理客户端。
+参照相邻 `learn-helix` 的报纸式阅读与实操体验制作的中文 Herdr 学习站。两个项目统一 Vue 3 JavaScript、暖纸色、本地字体、顶部导航、自由选课地图和共享组件；不再使用网站左侧课程栏。不是终端仿真器或 Herdr 管理客户端。
 
 在线学习：**https://wei-py.github.io/learn-herdr/**
 
@@ -8,28 +8,42 @@
 
 ## 本地运行
 
-需要 Node.js 20.19+ 或 22.12+，以及 npm。
+需要 Node.js **24.15+（24.x）或 26+**，以及 **pnpm 12.5.1**。CI 固定使用 Node.js 24.15.0；不使用 TypeScript 源文件。
 
 ```sh
-npm install
-npm run dev
+pnpm install --frozen-lockfile
+pnpm dev
 ```
 
 打开 **http://localhost:5175/**。开发服务器监听 `0.0.0.0`，同一局域网也可访问 Vite 打印的 Network 地址。端口被占用时明确报错，不会悄悄换端口。
 
 ```sh
-npm test
-npm run build
-npm run preview
+pnpm lint
+pnpm test
+pnpm build
+pnpm preview
 ```
 
 生产预览为 http://localhost:4175/；静态产物在 `dist/`，资源使用相对路径，可部署到静态站点的根目录或子目录。应用无需后端、数据库、账号、Herdr 安装或 API 密钥。字体来自本地系统，不加载外部字体、统计脚本或网络课程数据。
+
+## 统一技术栈与组件
+
+- Vue 3 + JavaScript、Pinia；Vite+ 提供 `vp dev / build / preview`，pnpm 与锁文件固定依赖。
+- TailwindCSS 负责原子样式；UnoCSS 只启用 `presetIcons`，使用 Carbon 的静态 `i-carbon-*` 类。
+- 跨业务工具统一选用 xe-utils；DOM 事件和虚拟列表复用 vue-hooks-plus。日期统一使用 dayjs；当前课程没有日期计算，不添加无用日期功能。
+- `src/shared/` 与 `learn-helix` 保持同源镜像，包括 BaseButton、BaseDialog、LearningShell、CourseMap、StudyGuide、VirtualList、类型及设计令牌。两仓库独立部署，不跨仓库引用文件；修改共享实现时必须同步另一份。
+- 业务按 `features/` 组织，全局状态位于 `stores/`，可复用纯领域逻辑位于 `domain/`，业务 feature 不直接依赖另一个 feature。
+- 字体统一为 14px / 1.65 系统无衬线正文、宋体标题、Georgia 英文报头和系统等宽代码。原生输入框、按钮、弹窗与选中卡片复用同一套纸色与边框。
+- 全部 JavaScript / Vue 脚本声明与回调使用中文 JSDoc；ESLint + `@antfu/eslint-config`、`eslint-plugin-jsdoc` 和声明覆盖规则检查具体类型、参数、返回值、标签、类型语法、中文说明及导入顺序。CI 不跳过检查。
+
+当前内容为本地同步数据，没有后端请求、表格、图片或异步课程加载；不生成空的 Axios/API SDK、虚假 Loading 或 Skeleton。引入这些实际场景时，再按请求、取消、错误态、占位尺寸与滚动规范实现。
+
 
 ## GitHub Pages 发布
 
 使用 `.github/workflows/deploy.yml` 自动发布。仓库 Settings → Pages → Build and deployment → Source 选择 **GitHub Actions**。
 
-推送到 `master` 后，工作流使用 Node.js 22 执行 `npm ci`、`npm test` 和 `npm run build`，然后上传 `dist/` 并部署。也可在 Actions → Deploy to GitHub Pages → Run workflow 手动发布。构建保留相对资源路径；Hash 路由不依赖服务器回退规则，课程深链接可直接打开与刷新。
+推送到 `master` 后，工作流依次执行冻结依赖安装、`pnpm lint`、`pnpm test`、`pnpm build`，再上传 `dist/` 并部署。**不需要提交 git tag**；也可在 Actions 中手动运行工作流。Pull Request 只做检查，不发布。相对资源路径与 Hash 路由兼容 Pages 项目子目录和课程深链接。
 
 发布状态：https://github.com/wei-py/learn-herdr/actions
 
@@ -59,13 +73,13 @@ npm run preview
 
 只有演示区获得焦点时才捕获练习快捷键。Tab 保留网页焦点导航；表单不捕获前缀键，支持中文输入。单独按 Shift、Control 等修饰键不会取消前缀。小写 `n` 与大写 `N` 的动作不同。
 
-实操页使用左侧课程索引、中央练习、右侧指导的双飞翼布局。宽度小于 1200px 时指导移到中央内容之后，900px 及以下索引通过原生 Drawer 打开。字体、正文行高、标题与代码字号参考相邻 `learn-helix`：系统无衬线正文、宋体标题、Georgia 英文报头与系统等宽代码，不加载外部字体。
+网站没有左侧课程栏或课程抽屉。课程地图是选课入口；实操采用中央操作区与右侧指导栏，窄屏把指导移到操作区之后。模拟器内部的工作区栏仍保留，用于真实的侧栏切换教学，不是网站导航。
 
-Layout 定义持久 `#scroll-root`，只有它负责页面纵向滚动；`html/body` 锁定，`main` 和两翼不创建第二个页面滚动视口。原生 Dialog / Drawer 在根容器之外独立滚动，并锁定背景，Esc 关闭后还原原位置与焦点。代码、演示终端和内部帮助面板有明确局部高度与滚动边界。
+`LearningShell` 在固定视口应用壳中定义唯一 `#scroll-root`；`html/body` 锁定，`main` 和指导栏不创建第二个页面滚动视口。原生 BaseDialog 内部独立滚动，并锁定背景，Esc 关闭后恢复原位置、overflow 声明优先级与焦点。代码、演示终端和内部帮助面板有明确局部高度与边界。
 
-页面跳转由 `src/navigation.js` 统一处理：普通进入置顶，课程地图/速查返回及浏览器前进后退恢复对应条目。`src/scroll.js` 提供 `remember / restore / preserve / observe / setOverlay / scrollToAnchor / top / dispose`；位置最多保留 80 条，仅在内存中保存。重绘保留页面位置及已展开的课程指导；不调用业务层 `window.scrollTo` 或 `scrollIntoView`。
+`src/router/index.js` 保留原 Hash 地址并统一导航策略：普通进入置顶，课程地图/速查返回和浏览器前进后退恢复对应历史项，两个相同 URL 的历史项不会合并位置。共享 `src/shared/composables/useLearningScroll.js` 负责锚点、rAF 观察、覆盖层锁定与最多 80 条内存位置；业务组件不调用 `window.scrollTo` 或 `scrollIntoView`。
 
-返回顶部在 600px 后出现，位于 `z-index: 200`。只有返回顶部与显式锚点可请求平滑滚动，并尊重减少动态效果偏好。完整规则适用性与验证边界见 [布局与滚动验收](docs/scroll-layout-qa.md)。
+返回顶部在 320px 后出现，位于 `z-index: 200`；顶部导航为 300，弹窗为 1200。只有返回顶部与显式锚点可请求平滑滚动，并尊重减少动态效果偏好。完整规则适用性与验证边界见 [布局与滚动验收](docs/scroll-layout-qa.md)。
 
 ## 键位设置与导出
 
@@ -113,24 +127,24 @@ prefix = "ctrl+b"
 
 ## 源码结构
 
-- `src/engine.js`：独立的分割树、布局焦点、会话与按键解析。
-- `src/lessons.js`：14 课步骤检查与独立最终目标检查。
-- `src/knowledge.js`：7 篇阅读、18 题和 34 项速查。
-- `src/main.js`：DOM 界面、课程指导、表单、Dialog / Drawer 与交互流程。
-- `src/navigation.js`：Hash 路由、历史条目标识、列表返回与页面滚动策略。
-- `src/scroll.js`：唯一主视口的滚动、rAF 观察、Overlay 锁定与内存位置缓存。
-- `src/progress.js`：本地记录与 TOML 前缀片段导出。
-- `src/style.css`：报纸式响应布局、状态、焦点和减少动态效果偏好。
-- `tests/engine.test.js`：布局几何、分割删除、分离保护、标签隔离、错误步骤、前缀修饰键和存储边界。
-- `tests/scroll.test.js`、`tests/navigation.test.js`：位置缓存边界、历史事件去重、列表返回、Overlay 恢复与监听清理。
+- `src/main.js`、`src/App.vue`：Vue/Pinia 入口和应用协调，不保留字符串渲染器。
+- `src/features/`：地图、阅读、递归窗格实操、回忆、速查和配置业务组件。
+- `src/stores/`：全局会话、进度、表单、对话框与业务类型。
+- `src/domain/engine.js`：独立的分割树、几何焦点、会话与按键解析。
+- `src/domain/lessons.js`、`knowledge.js`：14 课实操、7 篇阅读、18 题和 34 项速查。
+- `src/domain/progress.js`、`types.js`：兼容存储、TOML 导出与领域契约。
+- `src/router/index.js`：兼容 Hash 路由、历史标识、列表返回与页面滚动策略。
+- `src/shared/`：Base / Layout / Business 组件、共享 hooks、字体、颜色和层级。
+- `tooling/declaration-documentation.js`：全部声明及回调的中文 JSDoc 覆盖检查。
+- `tests/engine.test.js`：布局几何、关闭、分离保护、标签隔离、错误参数、前缀修饰键和存储边界。旧 DOM 路由与滚动实现及其专属测试已删除，新界面交互通过实际浏览器验收。
 
 ## 已执行验证
 
-- `npm test`：20 项通过（7 项引擎/进度 + 13 项滚动/路由）。
-- `npm run build`：生成静态产物。
-- BrowserOS neo 真实页面：14 个实操全部完成；包含 Shift 命名、工作区导航、关闭确认、综合挑战与分离重连。
-- 回忆流程：答错/查看答案不记掌握，正确答案同时记录题目与关联阅读课，刷新保留。
-- 速查搜索、空结果、刷新恢复搜索；自定义前缀替换旧前缀，下载文件内容正确。
-- 390px 浏览器窄屏：课程索引展开/收起、屏幕按键分割、无整页横向溢出。
+- `pnpm lint`、`pnpm build`：通过；`pnpm test`：7 项通过，无失败或跳过。
+- BrowserOS neo 在生产预览完成全部 14 个实操与 18 道回忆题；关联的 7 篇阅读也正确记录完成。
+- 物理 Shift 命名、错误名称不推进、Ctrl+A 替换旧 Ctrl+B、只读答案、真实 TOML 下载与解析、错误/查看答案不记掌握均已检查。
+- 地图 900px → 课程 0 → 返回 900px；同 URL 的旧/新历史项分别恢复 900px / 400px。速查搜索 `herdr` 的 16 项结果往返保留 800px 和查询，刷新保留查询但位置归零。
+- 1440px、768px、390px 分别为三/二/一列课程地图；390px 实操完成分割，未出现页面横向溢出。PageDown 只滚动根，减少动态模式下返回顶部使用 instant。
+- 局域网 HTTP 无 `crypto.randomUUID` 时仍生成独立历史标识；剪贴板不可用时显示手动复制/下载提示。验收记录与下载文件已清理，未修改原生 Herdr 配置或线上存储。
 
 窄屏验证是桌面浏览器模拟，不代表真机触控、软键盘或所有终端快捷键兼容性。未连接真实 Herdr 服务；上述验证不声称已安装或运行原生工具。
