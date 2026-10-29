@@ -9,8 +9,10 @@
   </head>
   <body>
     <a class="skip-link" href="#main">跳到课程内容</a>
-    <div id="app"></div>
+    <div id="scroll-root" tabindex="0" role="region" aria-label="学习页面"><div id="app"></div></div>
+    <button id="back-to-top" class="local-floating" hidden aria-label="返回顶部" title="返回顶部">↑</button>
     <dialog id="app-dialog" class="app-dialog"></dialog>
+    <dialog id="index-drawer" class="index-drawer" aria-label="课程索引"></dialog>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

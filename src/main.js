@@ -3,9 +3,19 @@ import { ACTION_KEYS, ACTION_NAMES, applyAction, workspace, tab, panes, keyForAc
 import { PRACTICES, initialFor, advanceStep } from './lessons.js';
 import { READINGS, QUESTIONS, REFERENCES } from './knowledge.js';
 import { loadProgress, saveProgress, PREFIXES, exportConfig } from './progress.js';
+import { createScrollManager } from './scroll.js';
+import { createNavigation } from './navigation.js';
 
 const root = document.querySelector('#app');
 const dialog = document.querySelector('#app-dialog');
+const scrollRoot = document.querySelector('#scroll-root');
+const scroll = createScrollManager({ root: scrollRoot, body: document.body });
+const drawer = document.querySelector('#index-drawer');
+const backTop = document.querySelector('#back-to-top');
+let navigation;
+let drawerTrigger = null;
+const lifecycle = new AbortController();
+const listen = (target, event, handler) => target.addEventListener(event, handler, { signal: lifecycle.signal });
 const lessons = [READINGS[0], READINGS[1], ...PRACTICES, ...READINGS.slice(2)];
 const groups = [...new Set(lessons.map(l => l.group))];
 const escape = value => String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
@@ -27,12 +37,11 @@ let revealed = false;
 let returnLesson = null;
 let referenceQuery = '';
 let referenceKind = '';
-let mobileIndex = false;
+const narrow = matchMedia('(max-width: 900px)');
 let openGroups = new Set(['入门与概念', '窗格与前缀']);
 let navigationIndex = 0;
 let modalSubmit = null;
 let modalTrigger = null;
-let mapScroll = 0;
 
 const prefixLabel = () => progress.prefix.replace('ctrl', 'Ctrl').toUpperCase().replace('CTRL', 'Ctrl');
 const sequence = action => action === 'prefix' ? prefixLabel() : action === 'escape' ? 'Esc' : action === 'reconnect' ? 'herdr ↵' : `${prefixLabel()} → ${keyForAction(action)}`;
@@ -40,13 +49,16 @@ const sourceLink = url => `<a class="source-link" href="${escape(url)}" target="
 function persist() { const warning = saveProgress(storage, progress); if (warning) notice = warning; }
 function markCompleted(id) { if (!progress.completed.includes(id)) { progress.completed.push(id); persist(); } }
 function navigate(hash) {
-  if (location.hash === `#${hash}`) readRoute();
-  else location.hash = hash;
+  if (hash === 'reference') {
+    const params = new URLSearchParams();
+    if (referenceQuery) params.set('q', referenceQuery);
+    if (referenceKind) params.set('kind', referenceKind);
+    hash = `reference${params.size ? `?${params}` : ''}`;
+  }
+  navigation.push(hash);
 }
-function readRoute() {
-  const previousRoute = route;
-  if (previousRoute === 'courses') mapScroll = window.scrollY;
-  const [path, query = ''] = location.hash.slice(1).split('?');
+function readRoute(hash, { restore = false } = {}) {
+  const [path, query = ''] = hash.split('?');
   const [track, id] = path.split('/');
   if (!track || track === 'courses') {
     route = 'courses';
@@ -68,18 +80,15 @@ function readRoute() {
     state = current.type === 'practice' ? initialFor(current) : null;
     feedback = { kind: '', text: '点击演示终端，按前缀键开始；也可使用下面的屏幕按键。' };
   }
-  mobileIndex = false;
-  render();
-  if (route === 'courses' && previousRoute === 'learn') {
-    window.scrollTo({ top: mapScroll });
+  render({ preserve: false });
+  if (route === 'courses' && restore) {
     root.querySelector(`[data-lesson="${current.id}"]`)?.focus({ preventScroll: true });
-  } else {
-    window.scrollTo({ top: 0 });
-    if (route === 'learn') document.querySelector('#main').focus({ preventScroll: true });
+  } else if (route === 'learn') {
+    document.querySelector('#main').focus({ preventScroll: true });
   }
 }
-function sidebar() {
-  return `<aside id="course-index" class="course-index ${mobileIndex ? 'open' : ''}" aria-label="课程索引">
+function sidebar(inDrawer = false) {
+  return `<aside id="${inDrawer ? 'drawer-course-index' : 'course-index'}" class="course-index ${inDrawer ? 'in-drawer' : ''}" aria-label="课程索引">
     <div class="index-heading"><div class="eyebrow">THE LEARNING INDEX</div><h2>从这里开始</h2><p>阅读原理，再动手练习。可自由选课。</p></div>
     <div class="progress-label"><span>课程进度</span><strong>${progress.completed.length} / ${lessons.length}</strong></div>
     <progress value="${progress.completed.length}" max="${lessons.length}" aria-label="课程完成进度"></progress>
@@ -87,25 +96,56 @@ function sidebar() {
     <p class="muted">进度仅保存在此浏览器。实操与回忆分别记录，不上传账户。</p>
   </aside>`;
 }
-function render() {
+function openIndexDrawer() {
+  if (!narrow.matches || drawer.open) return;
+  drawerTrigger = document.activeElement;
+  drawer.innerHTML = `<div class="dialog-heading"><h2>课程索引</h2><button class="drawer-close" data-close-drawer aria-label="关闭课程索引">关闭 ×</button></div>${sidebar(true)}`;
+  for (const group of drawer.querySelectorAll('[data-group]')) group.addEventListener('toggle', () => {
+    group.open ? openGroups.add(group.dataset.group) : openGroups.delete(group.dataset.group);
+  });
+  drawer.showModal();
+  scroll.setOverlay(true);
+  root.querySelector('.mobile-index-toggle')?.setAttribute('aria-expanded', 'true');
+}
+function closeNarrowDrawer() { if (!narrow.matches && drawer.open) drawer.close(); }
+listen(drawer, 'click', event => {
+  const lesson = event.target.closest('[data-lesson]');
+  if (lesson) navigate(`learn/${lesson.dataset.lesson}`);
+  else if (event.target.closest('[data-close-drawer]')) drawer.close();
+});
+listen(drawer, 'close', () => {
+  scroll.setOverlay(dialog.open);
+  drawer.innerHTML = '';
+  root.querySelector('.mobile-index-toggle')?.setAttribute('aria-expanded', 'false');
+  if (drawerTrigger?.isConnected) drawerTrigger.focus({ preventScroll: true });
+});
+listen(narrow, 'change', closeNarrowDrawer);
+function render({ preserve = true } = {}) {
   const active = document.activeElement;
   const restoreSimFocus = !!active?.closest('#simulator, [data-key]');
   const activeCommand = active?.getAttribute('data-command');
+  const openPanels = [...root.querySelectorAll('details[data-panel][open]')].map(el => el.dataset.panel);
+  const update = () => {
   root.innerHTML = `<header class="masthead">
     <div class="edition"><strong>中文交互学习 · 第 001 期</strong><span>终端工作区 / 智能体 / 持久化</span></div>
-    <a class="brand" href="#courses"><h1>Herdr 练习报</h1><span class="latin">THE AGENT WORKSPACE GAZETTE</span></a>
+    <a class="brand" href="#courses"><h1><span class="brand-latin">Herdr</span> <span>练习报</span></h1><span class="latin">THE AGENT WORKSPACE GAZETTE</span></a>
     <div class="mast-meta"><strong>读一点，练一下。</strong><span>依据官方 0.9.5 文档 · 非官方学习站</span></div>
     </header>
     <nav class="topbar" aria-label="主导航"><div class="nav-tabs"><button data-route="courses" class="${route === 'courses' || route === 'learn' ? 'active' : ''}" ${route === 'courses' ? 'aria-current="page"' : ''}>课程地图</button><button data-route="reference" class="${route === 'reference' ? 'active' : ''}" ${route === 'reference' ? 'aria-current="page"' : ''}>速查目录</button><button data-route="recall" class="${route === 'recall' ? 'active' : ''}" ${route === 'recall' ? 'aria-current="page"' : ''}>场景回忆</button></div><div class="toolbar"><button data-modal="config">键位与导出</button><button data-modal="help">使用说明</button></div></nav>
     ${notice ? `<p class="notice" role="status">${escape(notice)}</p>` : ''}
-    ${route !== 'courses' ? `<button class="mobile-index-toggle" data-command="index" aria-expanded="${mobileIndex}" aria-controls="course-index">${mobileIndex ? '收起' : '展开'}课程索引 · ${progress.completed.length}/${lessons.length}</button>` : ''}
-    <div class="layout ${route === 'courses' ? 'map-layout' : ''}">${route !== 'courses' ? sidebar() : ''}<main id="main" class="main-column" tabindex="-1">${route === 'courses' ? courseMapMarkup() : route === 'learn' ? lessonMarkup() : route === 'reference' ? referenceMarkup() : quizMarkup()}</main></div>
+    ${route !== 'courses' ? `<button class="mobile-index-toggle" data-command="index" aria-expanded="${drawer.open}" aria-controls="index-drawer">课程索引 · ${progress.completed.length}/${lessons.length}</button>` : ''}
+    <div class="layout ${route === 'courses' ? 'map-layout' : route === 'learn' && current.type === 'practice' ? 'practice-layout' : ''}">${route !== 'courses' ? sidebar() : ''}<main id="main" class="main-column" tabindex="-1">${route === 'courses' ? courseMapMarkup() : route === 'learn' ? lessonMarkup() : route === 'reference' ? referenceMarkup() : quizMarkup()}</main>${route === 'learn' && current.type === 'practice' ? guideMarkup() : ''}</div>
     <footer class="page-footer"><span>HERDR 练习报 · 学习在此，执行在真实终端。</span><a href="https://herdr.dev/zh-cn/docs/" target="_blank" rel="noopener noreferrer">阅读官方文档 ↗</a></footer>`;
   for (const details of root.querySelectorAll('[data-group]')) details.addEventListener('toggle', () => {
     details.open ? openGroups.add(details.dataset.group) : openGroups.delete(details.dataset.group);
   });
+  for (const panel of root.querySelectorAll('details[data-panel]')) panel.open = preserve && openPanels.includes(panel.dataset.panel);
+  for (const code of root.querySelectorAll('pre')) { code.classList.add('scroll-section'); if (!code.closest('button')) code.tabIndex = 0; }
   if (restoreSimFocus) document.querySelector('#simulator')?.focus({ preventScroll: true });
   else if (activeCommand) root.querySelector(`[data-command="${CSS.escape(activeCommand)}"]`)?.focus({ preventScroll: true });
+  };
+  if (preserve) scroll.preserve(update);
+  else update();
 }
 function heading(eyebrow, title, intro) {
   return `<header class="section-heading"><div class="eyebrow">${escape(eyebrow)}</div><h2>${escape(title)}</h2><p class="lead">${escape(intro)}</p></header>`;
@@ -140,13 +180,7 @@ function lessonMarkup() {
 function practiceMarkup() {
   const complete = stepIndex === current.steps.length && current.goal(state);
   const nextStep = current.steps[stepIndex];
-  return `<div class="lesson-layout"><section class="lesson-guide" aria-label="本课指导"><div class="section-label">本课目标</div><p class="objective">${escape(current.objective)}</p>
-    <ol class="steps">${current.steps.map((s, index) => `<li class="${index < stepIndex ? 'done' : index === stepIndex ? 'current' : ''}"><span>${escape(s.label)}</span>${hints ? `<br><kbd>${escape(sequence(s.action))}</kbd>` : ''}</li>`).join('')}</ol>
-    <button class="text-button" data-command="hints">${hints ? '隐藏按键提示' : '显示按键提示'}</button>
-    <details class="answer"><summary>为什么这样操作</summary><p>${escape(current.explanation)}</p></details>
-    <details class="answer"><summary>查看答案（不代做）</summary><ol>${current.steps.map(s => `<li><code>${escape(sequence(s.action))}${s.value ? ` → ${escape(s.value)} → Enter` : ''}</code>${s.action === 'select-workspace' ? ' → 选择 field-notes' : ''}</li>`).join('')}</ol><p>${escape(current.objective)}</p></details>
-    <p class="muted">${escape(current.takeaway)}</p></section>
-    <section class="practice-column" aria-label="交互练习">${simulatorMarkup()}
+  return `<div class="lesson-layout"><section class="practice-column" aria-label="交互练习">${simulatorMarkup()}
       <div class="sim-actions"><span class="section-label">屏幕按键</span><button class="key-button" data-key="prefix"><kbd>${escape(prefixLabel())}</kbd> 前缀</button><button class="key-button" data-key="escape"><kbd>Esc</kbd> 取消</button></div>
       <div class="key-controls">${[...new Set([...(nextStep && ACTION_KEYS[Object.keys(ACTION_KEYS).find(k => ACTION_KEYS[k] === nextStep.action)] ? [Object.keys(ACTION_KEYS).find(k => ACTION_KEYS[k] === nextStep.action)] : []), 'v', '-', 'h', 'j', 'k', 'l', 'c', 'n', 'p', 'z', 'w', '?', 'q', 'N', 'T', 'x', 'b'])].map(key => `<button class="key-button ${hints && nextStep?.action === ACTION_KEYS[key] ? 'suggested' : ''}" data-key="${escape(key)}" title="${escape(ACTION_NAMES[ACTION_KEYS[key]])}" ${!state.connected ? 'disabled' : ''}><kbd>${escape(keyForAction(ACTION_KEYS[key]))}</kbd><span>${escape(ACTION_NAMES[ACTION_KEYS[key]])}</span></button>`).join('')}</div>
       <p class="muted">先点前缀，再点动作。物理键盘只在演示区内生效；Tab 保留网页焦点导航。</p>
@@ -155,6 +189,14 @@ function practiceMarkup() {
       ${complete ? '<div class="feedback success"><strong>本课完成 ✓</strong><br>步骤与当前布局均符合目标，进度已记录。</div>' : ''}
       <div class="lesson-footer"><button data-command="reset-practice">重新练习</button><span>${Math.min(stepIndex, current.steps.length)} / ${current.steps.length} 步</span><button class="${complete ? 'primary' : 'secondary'}" data-command="next-lesson">${complete ? '下一课 →' : '跳到下一课 →'}</button></div>
     </section></div>`;
+}
+function guideMarkup() {
+  return `<aside class="lesson-guide" aria-label="本课指导"><header class="guide-heading"><h2>本课指导</h2></header><div class="section-label">本课目标</div><p class="objective">${escape(current.objective)}</p>
+    <ol class="steps">${current.steps.map((s, index) => `<li class="${index < stepIndex ? 'done' : index === stepIndex ? 'current' : ''}"><span>${escape(s.label)}</span>${hints ? `<br><kbd>${escape(sequence(s.action))}</kbd>` : ''}</li>`).join('')}</ol>
+    <button class="text-button" data-command="hints">${hints ? '隐藏按键提示' : '显示按键提示'}</button>
+    <details class="answer" data-panel="explanation"><summary>为什么这样操作</summary><p>${escape(current.explanation)}</p></details>
+    <details class="answer" data-panel="answer"><summary>查看答案（不代做）</summary><ol>${current.steps.map(s => `<li><code>${escape(sequence(s.action))}${s.value ? ` → ${escape(s.value)} → Enter` : ''}</code>${s.action === 'select-workspace' ? ' → 选择 field-notes' : ''}</li>`).join('')}</ol><p>${escape(current.objective)}</p></details>
+    <p class="takeaway muted">${escape(current.takeaway)}</p></aside>`;
 }
 function treeMarkup(tree, focused, zoomed) {
   if (zoomed && tree.axis) return treeMarkup(panes(tree).find(p => p.id === focused), focused, false);
@@ -249,18 +291,19 @@ function showDialog(markup, onSubmit = null) {
   modalTrigger = document.activeElement;
   modalSubmit = onSubmit;
   dialog.innerHTML = markup;
+  for (const code of dialog.querySelectorAll('pre')) { code.classList.add('scroll-section'); code.tabIndex = 0; }
   if (!dialog.open) dialog.showModal();
-  document.body.style.overflow = 'hidden';
+  scroll.setOverlay(true);
 }
 function closeDialog() { dialog.close(); }
-dialog.addEventListener('close', () => {
-  document.body.style.overflow = '';
+listen(dialog, 'close', () => {
+  scroll.setOverlay(drawer.open);
   modalSubmit = null;
   if (modalTrigger?.isConnected) modalTrigger.focus({ preventScroll: true });
   else document.querySelector('#simulator')?.focus({ preventScroll: true });
 });
-dialog.addEventListener('click', event => { if (event.target.closest('[data-close]')) closeDialog(); });
-dialog.addEventListener('submit', event => { event.preventDefault(); modalSubmit?.(event); });
+listen(dialog, 'click', event => { if (event.target.closest('[data-close]')) closeDialog(); });
+listen(dialog, 'submit', event => { event.preventDefault(); modalSubmit?.(event); });
 function openHelp() {
   showDialog(`<div class="dialog-heading"><h2>这是一份可以动手的学习报。</h2><button data-close aria-label="关闭使用说明">关闭 ×</button></div><div class="reading"><h3>三条学习路径</h3><ul><li>课程地图：${READINGS.length} 篇原理阅读、${PRACTICES.length} 个布局实操。全部开放，点击任意课程即可开始；完成记录只标记进度，不限制选课。</li><li>速查目录：${REFERENCES.length} 个精选快捷键、CLI 与配置条目；不是完整目录。</li><li>场景回忆：${QUESTIONS.length} 道独立问题，答对记录掌握；阅读课通过关联自测记完成。</li></ul><h3>如何实操</h3><p>点击演示终端后，按下并松开 <kbd>${escape(prefixLabel())}</kbd>，再按动作键。或者依次点屏幕前缀与动作按钮。仅演示区捕获快捷键，Tab 保留网页导航。命名输入框支持中文输入与 Enter。</p><h3>范围与限制</h3><p>这是非官方、基于官方 0.9.5 文档的学习应用，不是 Herdr 终端克隆。只模拟布局、焦点、标签页、工作区和分离状态。不运行 shell、AI、SSH、socket API、复制模式或 worktree。新建工作区、导航与关闭确认采用教学简化；资源数有练习上限。</p><p>“查看答案”不执行操作、不记完成。错误的受支持动作会真实改变本页状态。已掌握记录保留，重新练习不删除历史掌握。</p><h3>本地记录</h3><p>进度与练习前缀保存在此浏览器 localStorage。不保存真实终端内容、凭据或提示词，不与服务器同步。刷新重置当前模拟布局，不清除掌握记录。</p>${sourceLink('https://herdr.dev/zh-cn/docs/')}</div>`);
 }
@@ -275,7 +318,7 @@ function openConfig() {
     document.querySelector('#config-status').textContent = '已保存。本页提示、按键匹配与导出使用同一前缀。';
   });
 }
-dialog.addEventListener('click', async event => {
+listen(dialog, 'click', async event => {
   const action = event.target.closest('[data-dialog-action]')?.dataset.dialogAction;
   if (!action) return;
   if (action === 'download-config') {
@@ -309,7 +352,13 @@ function nextQuestion() {
   navigate(`recall/${next.id}`);
 }
 function nextLesson() { navigate(`learn/${lessons[(lessons.indexOf(current) + 1) % lessons.length].id}`); }
-root.addEventListener('click', event => {
+listen(root, 'click', event => {
+  const anchor = event.target.closest('a[href^="#"]');
+  if (anchor && event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey) {
+    event.preventDefault();
+    navigate(anchor.hash.slice(1));
+    return;
+  }
   const target = event.target.closest('button');
   if (!target) return;
   if (target.dataset.lesson) { navigate(`learn/${target.dataset.lesson}`); return; }
@@ -324,7 +373,7 @@ root.addEventListener('click', event => {
     document.querySelector(`[data-option="${selected}"]`)?.focus({ preventScroll: true }); return;
   }
   switch (target.dataset.command) {
-    case 'index': mobileIndex = !mobileIndex; render(); break;
+    case 'index': openIndexDrawer(); break;
     case 'hints': hints = !hints; render(); break;
     case 'reset-practice': state = initialFor(current); stepIndex = 0; keyHistory = []; feedback = { kind: '', text: '已恢复本课初始布局，历史掌握记录保留。' }; render(); break;
     case 'next-lesson': nextLesson(); break;
@@ -334,7 +383,7 @@ root.addEventListener('click', event => {
     case 'next-question': nextQuestion(); break;
   }
 });
-root.addEventListener('keydown', event => {
+listen(root, 'keydown', event => {
   if (event.key === 'Tab' || !event.target.closest('#simulator') || dialog.open) return;
   if (!state.connected) return;
   if (state.mode === 'navigate' && ['ArrowUp', 'ArrowDown', 'j', 'k', 'Enter'].includes(event.key)) {
@@ -353,7 +402,7 @@ root.addEventListener('keydown', event => {
   else if (resolved.action === 'invalid') { state = applyAction(state, 'escape').state; feedback = { kind: 'error', text: resolved.message }; render(); }
   else { keyHistory.push(event.key); requestAction(resolved.action, resolved.value); }
 });
-root.addEventListener('submit', event => {
+listen(root, 'submit', event => {
   event.preventDefault();
   if (event.target.id === 'reconnect-form') {
     if (new FormData(event.target).get('command').trim() === 'herdr') { keyHistory.push('herdr ↵'); perform('reconnect'); document.querySelector('#simulator')?.focus({ preventScroll: true }); }
@@ -368,15 +417,31 @@ function updateReference() {
   document.querySelector('#reference-results').innerHTML = referenceRows(filtered);
   document.querySelector('#reference-count').textContent = `显示 ${filtered.length} / ${REFERENCES.length} 项 · 命令仅供查阅，不会在网页执行。`;
   const params = new URLSearchParams(); if (referenceQuery) params.set('q', referenceQuery); if (referenceKind) params.set('kind', referenceKind);
-  history.replaceState(null, '', `#reference${params.size ? `?${params}` : ''}`);
+  navigation.replace(`reference${params.size ? `?${params}` : ''}`);
 }
-root.addEventListener('input', event => { if (event.target.id === 'reference-query') updateReference(); });
-root.addEventListener('change', event => { if (event.target.id === 'reference-kind') updateReference(); });
-document.querySelector('.skip-link').addEventListener('click', event => {
+listen(root, 'input', event => { if (event.target.id === 'reference-query') updateReference(); });
+listen(root, 'change', event => { if (event.target.id === 'reference-kind') updateReference(); });
+listen(document.querySelector('.skip-link'), 'click', event => {
   event.preventDefault();
-  const main = document.querySelector('#main');
-  main.focus({ preventScroll: true });
-  main.scrollIntoView({ block: 'start' });
+  scroll.scrollToAnchor(document.querySelector('#main'), { smooth: false, focus: true });
 });
-window.addEventListener('hashchange', readRoute);
-readRoute();
+navigation = createNavigation({
+  history, location, events: window, scroll, renderRoute: readRoute,
+  beforeNavigate: () => {
+    if (dialog.open) dialog.close();
+    if (drawer.open) drawer.close();
+    scroll.setOverlay(false);
+  },
+});
+listen(backTop, 'click', () => scroll.top(true));
+const stopObserving = scroll.observe(scrollRoot, top => { backTop.hidden = top <= 600; });
+function dispose() {
+  lifecycle.abort();
+  stopObserving();
+  navigation.dispose();
+  scroll.dispose();
+  narrow.removeEventListener('change', closeNarrowDrawer);
+}
+listen(window, 'pagehide', event => { if (!event.persisted) dispose(); });
+if (import.meta.hot) import.meta.hot.dispose(dispose);
+navigation.start();
