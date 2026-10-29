@@ -1,0 +1,13 @@
+{
+  "name": "herdr-lab-zh",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5175 --strictPort",
+    "build": "vite build --base=./",
+    "preview": "vite preview --host 0.0.0.0 --port 4175 --strictPort",
+    "test": "node --test"
+  },
+  "devDependencies": { "vite": "^7.2.2" }
+}
