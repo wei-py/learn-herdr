@@ -1,5 +1,12 @@
 # 更新记录
 
+## GitHub Pages 发布
+
+- 新增 GitHub Actions 工作流：推送 `master` 或手动触发后，安装依赖、运行测试、构建并部署 `dist/`。
+- 使用 Pages 官方上传与部署 Actions，部署权限限定为读取仓库、写入 Pages 与签发部署身份。
+- 保留 Vite 相对资源路径与 Hash 导航，兼容 `/learn-herdr/` 项目路径和课程深链接刷新。
+- 发布地址：https://wei-py.github.io/learn-herdr/；源码仓库：https://github.com/wei-py/learn-herdr。
+
 ## 1.0.0
 
 - 新建中文 Herdr 练习报，参考 `learn-helix` 的报纸式界面与“阅读、动手、回忆”学习路径。

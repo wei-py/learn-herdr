@@ -2,6 +2,10 @@
 
 参照相邻 `learn-helix` 的报纸式阅读与实操体验制作的中文 Herdr 学习站。暖纸色、衬线标题、课程索引、交互布局演示、精选速查与场景回忆；不是终端仿真器或 Herdr 管理客户端。
 
+在线学习：**https://wei-py.github.io/learn-herdr/**
+
+源码仓库：https://github.com/wei-py/learn-herdr
+
 ## 本地运行
 
 需要 Node.js 20.19+ 或 22.12+，以及 npm。
@@ -20,6 +24,16 @@ npm run preview
 ```
 
 生产预览为 http://localhost:4175/；静态产物在 `dist/`，资源使用相对路径，可部署到静态站点的根目录或子目录。应用无需后端、数据库、账号、Herdr 安装或 API 密钥。字体来自本地系统，不加载外部字体、统计脚本或网络课程数据。
+
+## GitHub Pages 发布
+
+使用 `.github/workflows/deploy.yml` 自动发布。仓库 Settings → Pages → Build and deployment → Source 选择 **GitHub Actions**。
+
+推送到 `master` 后，工作流使用 Node.js 22 执行 `npm ci`、`npm test` 和 `npm run build`，然后上传 `dist/` 并部署。也可在 Actions → Deploy to GitHub Pages → Run workflow 手动发布。构建保留相对资源路径；Hash 路由不依赖服务器回退规则，课程深链接可直接打开与刷新。
+
+发布状态：https://github.com/wei-py/learn-herdr/actions
+
+本地与线上站点的浏览器记录彼此独立，不会把 localhost 的学习进度自动迁移到 Pages。
 
 ## 学什么
 
