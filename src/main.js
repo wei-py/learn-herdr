@@ -32,6 +32,7 @@ let openGroups = new Set(['入门与概念', '窗格与前缀']);
 let navigationIndex = 0;
 let modalSubmit = null;
 let modalTrigger = null;
+let mapScroll = 0;
 
 const prefixLabel = () => progress.prefix.replace('ctrl', 'Ctrl').toUpperCase().replace('CTRL', 'Ctrl');
 const sequence = action => action === 'prefix' ? prefixLabel() : action === 'escape' ? 'Esc' : action === 'reconnect' ? 'herdr ↵' : `${prefixLabel()} → ${keyForAction(action)}`;
@@ -43,9 +44,13 @@ function navigate(hash) {
   else location.hash = hash;
 }
 function readRoute() {
+  const previousRoute = route;
+  if (previousRoute === 'courses') mapScroll = window.scrollY;
   const [path, query = ''] = location.hash.slice(1).split('?');
   const [track, id] = path.split('/');
-  if (track === 'reference') {
+  if (!track || track === 'courses') {
+    route = 'courses';
+  } else if (track === 'reference') {
     route = 'reference';
     const params = new URLSearchParams(query);
     referenceQuery = params.get('q') || '';
@@ -65,7 +70,13 @@ function readRoute() {
   }
   mobileIndex = false;
   render();
-  window.scrollTo({ top: 0 });
+  if (route === 'courses' && previousRoute === 'learn') {
+    window.scrollTo({ top: mapScroll });
+    root.querySelector(`[data-lesson="${current.id}"]`)?.focus({ preventScroll: true });
+  } else {
+    window.scrollTo({ top: 0 });
+    if (route === 'learn') document.querySelector('#main').focus({ preventScroll: true });
+  }
 }
 function sidebar() {
   return `<aside id="course-index" class="course-index ${mobileIndex ? 'open' : ''}" aria-label="课程索引">
@@ -82,13 +93,13 @@ function render() {
   const activeCommand = active?.getAttribute('data-command');
   root.innerHTML = `<header class="masthead">
     <div class="edition"><strong>中文交互学习 · 第 001 期</strong><span>终端工作区 / 智能体 / 持久化</span></div>
-    <a class="brand" href="#learn/prefix"><h1>Herdr 练习报</h1><span class="latin">THE AGENT WORKSPACE GAZETTE</span></a>
+    <a class="brand" href="#courses"><h1>Herdr 练习报</h1><span class="latin">THE AGENT WORKSPACE GAZETTE</span></a>
     <div class="mast-meta"><strong>读一点，练一下。</strong><span>依据官方 0.9.5 文档 · 非官方学习站</span></div>
     </header>
-    <nav class="topbar" aria-label="主导航"><div class="nav-tabs"><button data-route="learn/${current.id}" class="${route === 'learn' ? 'active' : ''}" ${route === 'learn' ? 'aria-current="page"' : ''}>学习与练习</button><button data-route="reference" class="${route === 'reference' ? 'active' : ''}" ${route === 'reference' ? 'aria-current="page"' : ''}>速查目录</button><button data-route="recall" class="${route === 'recall' ? 'active' : ''}" ${route === 'recall' ? 'aria-current="page"' : ''}>场景回忆</button></div><div class="toolbar"><button data-modal="config">键位与导出</button><button data-modal="help">使用说明</button></div></nav>
+    <nav class="topbar" aria-label="主导航"><div class="nav-tabs"><button data-route="courses" class="${route === 'courses' || route === 'learn' ? 'active' : ''}" ${route === 'courses' ? 'aria-current="page"' : ''}>课程地图</button><button data-route="reference" class="${route === 'reference' ? 'active' : ''}" ${route === 'reference' ? 'aria-current="page"' : ''}>速查目录</button><button data-route="recall" class="${route === 'recall' ? 'active' : ''}" ${route === 'recall' ? 'aria-current="page"' : ''}>场景回忆</button></div><div class="toolbar"><button data-modal="config">键位与导出</button><button data-modal="help">使用说明</button></div></nav>
     ${notice ? `<p class="notice" role="status">${escape(notice)}</p>` : ''}
-    <button class="mobile-index-toggle" data-command="index" aria-expanded="${mobileIndex}" aria-controls="course-index">${mobileIndex ? '收起' : '展开'}课程索引 · ${progress.completed.length}/${lessons.length}</button>
-    <div class="layout">${sidebar()}<main id="main" class="main-column" tabindex="-1">${route === 'learn' ? lessonMarkup() : route === 'reference' ? referenceMarkup() : quizMarkup()}</main></div>
+    ${route !== 'courses' ? `<button class="mobile-index-toggle" data-command="index" aria-expanded="${mobileIndex}" aria-controls="course-index">${mobileIndex ? '收起' : '展开'}课程索引 · ${progress.completed.length}/${lessons.length}</button>` : ''}
+    <div class="layout ${route === 'courses' ? 'map-layout' : ''}">${route !== 'courses' ? sidebar() : ''}<main id="main" class="main-column" tabindex="-1">${route === 'courses' ? courseMapMarkup() : route === 'learn' ? lessonMarkup() : route === 'reference' ? referenceMarkup() : quizMarkup()}</main></div>
     <footer class="page-footer"><span>HERDR 练习报 · 学习在此，执行在真实终端。</span><a href="https://herdr.dev/zh-cn/docs/" target="_blank" rel="noopener noreferrer">阅读官方文档 ↗</a></footer>`;
   for (const details of root.querySelectorAll('[data-group]')) details.addEventListener('toggle', () => {
     details.open ? openGroups.add(details.dataset.group) : openGroups.delete(details.dataset.group);
@@ -99,9 +110,30 @@ function render() {
 function heading(eyebrow, title, intro) {
   return `<header class="section-heading"><div class="eyebrow">${escape(eyebrow)}</div><h2>${escape(title)}</h2><p class="lead">${escape(intro)}</p></header>`;
 }
+function courseMapMarkup() {
+  const descriptions = {
+    '入门与概念': '先了解工具入口，以及会话、工作区、标签页与窗格的关系。',
+    '窗格与前缀': '从前缀开始，动手分割、移动焦点与管理窗格。',
+    '标签页与工作区': '把不同视图放进标签页，把不同项目放进工作区。',
+    '会话与综合': '理解分离与重连，串起一套完整的工作台操作。',
+    '智能体与持久化': '读懂智能体状态，分清进程持续运行与恢复的边界。',
+    '配置与自动化': '安全修改配置，认识真实 CLI 与 API 的使用方式。',
+  };
+  return `${heading('CHOOSE YOUR NEXT LESSON', '课程地图', '从感兴趣的一课开始。全部课程开放，顺序只是建议，不必逐关完成。')}
+    <div class="map-overview"><span>${groups.length} 个专题 · ${PRACTICES.length} 个实操 · ${READINGS.length} 篇阅读</span><span>已掌握 <strong>${progress.completed.length} / ${lessons.length}</strong></span></div>
+    <div class="course-map">${groups.map((group, groupIndex) => {
+      const items = lessons.filter(l => l.group === group);
+      const done = items.filter(l => progress.completed.includes(l.id)).length;
+      return `<section class="map-stage" aria-labelledby="stage-${groupIndex}"><header class="map-stage-heading"><span class="stage-number">${String(groupIndex + 1).padStart(2, '0')}</span><div><h3 id="stage-${groupIndex}">${escape(group)}</h3><p>${escape(descriptions[group])}</p></div><span class="stage-progress">${done} / ${items.length} 已掌握</span></header>
+        <div class="course-grid">${items.map(l => {
+          const completed = progress.completed.includes(l.id);
+          return `<button class="course-choice ${completed ? 'is-complete' : ''}" data-lesson="${l.id}"><span class="choice-top"><span class="choice-number">${String(lessons.indexOf(l) + 1).padStart(2, '0')}</span><span>${l.type === 'practice' ? '实操' : '阅读'} · 约 ${l.minutes} 分钟</span></span><strong class="choice-title">${escape(l.title)}</strong><span class="choice-description">${escape(l.intro)}</span><span class="choice-bottom"><span>${completed ? '已掌握 ✓' : '待学习'}</span><span class="choice-action">${completed ? '再练一次' : l.type === 'practice' ? '开始练习' : '开始阅读'} →</span></span></button>`;
+        }).join('')}</div></section>`;
+    }).join('')}</div>`;
+}
 function lessonMarkup() {
   const done = progress.completed.includes(current.id);
-  return `${heading(`${current.group} / LESSON ${String(lessons.indexOf(current) + 1).padStart(2, '0')}`, current.title, current.intro)}
+  return `<div class="lesson-breadcrumb"><button class="text-button" data-route="courses">← 返回课程地图</button><span>所有课程均可自由选择</span></div>${heading(`${current.group} / LESSON ${String(lessons.indexOf(current) + 1).padStart(2, '0')}`, current.title, current.intro)}
     <div class="lesson-meta"><span class="tag">${current.type === 'practice' ? '布局实操' : '原理阅读'}</span><span>约 ${current.minutes} 分钟</span>${done ? '<span class="badge">已掌握 ✓</span>' : ''}${sourceLink(current.source)}</div>
     ${current.type === 'practice' ? practiceMarkup() : readingMarkup()}`;
 }
@@ -230,7 +262,7 @@ dialog.addEventListener('close', () => {
 dialog.addEventListener('click', event => { if (event.target.closest('[data-close]')) closeDialog(); });
 dialog.addEventListener('submit', event => { event.preventDefault(); modalSubmit?.(event); });
 function openHelp() {
-  showDialog(`<div class="dialog-heading"><h2>这是一份可以动手的学习报。</h2><button data-close aria-label="关闭使用说明">关闭 ×</button></div><div class="reading"><h3>三条学习路径</h3><ul><li>学习与练习：${READINGS.length} 篇原理阅读、${PRACTICES.length} 个布局实操。</li><li>速查目录：${REFERENCES.length} 个精选快捷键、CLI 与配置条目；不是完整目录。</li><li>场景回忆：${QUESTIONS.length} 道独立问题，答对记录掌握；阅读课通过关联自测记完成。</li></ul><h3>如何实操</h3><p>点击演示终端后，按下并松开 <kbd>${escape(prefixLabel())}</kbd>，再按动作键。或者依次点屏幕前缀与动作按钮。仅演示区捕获快捷键，Tab 保留网页导航。命名输入框支持中文输入与 Enter。</p><h3>范围与限制</h3><p>这是非官方、基于官方 0.9.5 文档的学习应用，不是 Herdr 终端克隆。只模拟布局、焦点、标签页、工作区和分离状态。不运行 shell、AI、SSH、socket API、复制模式或 worktree。新建工作区、导航与关闭确认采用教学简化；资源数有练习上限。</p><p>“查看答案”不执行操作、不记完成。错误的受支持动作会真实改变本页状态。已掌握记录保留，重新练习不删除历史掌握。</p><h3>本地记录</h3><p>进度与练习前缀保存在此浏览器 localStorage。不保存真实终端内容、凭据或提示词，不与服务器同步。刷新重置当前模拟布局，不清除掌握记录。</p>${sourceLink('https://herdr.dev/zh-cn/docs/')}</div>`);
+  showDialog(`<div class="dialog-heading"><h2>这是一份可以动手的学习报。</h2><button data-close aria-label="关闭使用说明">关闭 ×</button></div><div class="reading"><h3>三条学习路径</h3><ul><li>课程地图：${READINGS.length} 篇原理阅读、${PRACTICES.length} 个布局实操。全部开放，点击任意课程即可开始；完成记录只标记进度，不限制选课。</li><li>速查目录：${REFERENCES.length} 个精选快捷键、CLI 与配置条目；不是完整目录。</li><li>场景回忆：${QUESTIONS.length} 道独立问题，答对记录掌握；阅读课通过关联自测记完成。</li></ul><h3>如何实操</h3><p>点击演示终端后，按下并松开 <kbd>${escape(prefixLabel())}</kbd>，再按动作键。或者依次点屏幕前缀与动作按钮。仅演示区捕获快捷键，Tab 保留网页导航。命名输入框支持中文输入与 Enter。</p><h3>范围与限制</h3><p>这是非官方、基于官方 0.9.5 文档的学习应用，不是 Herdr 终端克隆。只模拟布局、焦点、标签页、工作区和分离状态。不运行 shell、AI、SSH、socket API、复制模式或 worktree。新建工作区、导航与关闭确认采用教学简化；资源数有练习上限。</p><p>“查看答案”不执行操作、不记完成。错误的受支持动作会真实改变本页状态。已掌握记录保留，重新练习不删除历史掌握。</p><h3>本地记录</h3><p>进度与练习前缀保存在此浏览器 localStorage。不保存真实终端内容、凭据或提示词，不与服务器同步。刷新重置当前模拟布局，不清除掌握记录。</p>${sourceLink('https://herdr.dev/zh-cn/docs/')}</div>`);
 }
 function openConfig() {
   showDialog(`<div class="dialog-heading"><h2>练习前缀与配置导出</h2><button data-close aria-label="关闭键位设置">关闭 ×</button></div><form id="config-form"><label for="prefix-choice">本页实操使用的前缀</label><select name="prefix" id="prefix-choice">${PREFIXES.map(p => `<option value="${p}" ${p === progress.prefix ? 'selected' : ''}>${p}</option>`).join('')}</select><p class="muted">只修改学习站的前缀；速查与阅读仍标注官方默认值。不会更改真实 Herdr。前缀改变会重置本课演示，不清除掌握记录。</p><div class="dialog-actions"><button type="submit" class="primary">保存练习前缀</button></div></form><h3>合并到真实配置</h3><p>路径：<code>~/.config/herdr/config.toml</code>。先备份，合并到已有 <code>[keys]</code>；不要覆盖整个文件，也不要重复表头。</p><div class="config-preview"><pre id="config-code">${escape(exportConfig(progress.prefix))}</pre></div><div class="dialog-actions"><button data-dialog-action="copy-config">复制片段</button><button data-dialog-action="download-config">下载 herdr-keys.toml</button></div><p id="config-status" role="status"></p><p>原生 Herdr 的 UI 全局菜单 <code>reload config</code> 可更新客户端与选中服务器的配置；CLI <code>herdr server reload-config</code> 重载服务器设置。</p>${sourceLink('https://herdr.dev/zh-cn/docs/configuration/')}`, event => {
