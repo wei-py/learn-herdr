@@ -16,7 +16,7 @@ function isReturnLesson(lesson) { return lesson.id === store.returnLesson; }
 </script>
 
 <template>
-  <header class="section-heading"><div class="eyebrow">RECALL, NOT REPEAT</div><h2>把操作，变成自己的判断。</h2><p class="lead">从具体场景中选择下一步。答对才记掌握，查看答案不会代你完成。</p></header>
+  <header class="section-heading"><h2>回忆练习</h2><p class="lead">答对记掌握，查看答案不计入进度。</p></header>
   <div class="quiz-counter"><span>第 {{ QUESTIONS.indexOf(store.question) + 1 }} / {{ QUESTIONS.length }} 题 · {{ store.question.group }}</span><span>已掌握 {{ store.progress.mastered.length }} / {{ QUESTIONS.length }}</span></div>
   <section class="quiz-panel">
     <h3>{{ store.question.question }}</h3>

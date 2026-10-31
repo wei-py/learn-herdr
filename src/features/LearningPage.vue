@@ -24,5 +24,5 @@ createLearningRouter(store, scroll);
   <LessonView v-else-if="store.route === 'learn'" />
   <ReferenceView v-else-if="store.route === 'reference'" />
   <RecallView v-else />
-  <footer class="page-footer"><span>HERDR 练习报 · 学习在此，执行在真实终端。</span><a href="https://herdr.dev/zh-cn/docs/" target="_blank" rel="noopener noreferrer">阅读官方文档</a></footer>
+  <footer class="page-footer"><span>Herdr · 教学模拟</span><a href="https://herdr.dev/zh-cn/docs/" target="_blank" rel="noopener noreferrer">官方文档</a></footer>
 </template>

@@ -24,7 +24,7 @@ const nameInput = ref(null);
 const title = computed(/**
  * 根据对话框类型生成当前标题。
  * @returns {string} 当前对话框标题。
- */ () => ({ settings: '练习前缀与配置导出', help: '这是一份可以动手的学习报。', name: store.actionTitle(), close: '关闭这个演示窗格？' })[store.dialog] || '练习操作');
+ */ () => ({ settings: '设置与导出', help: '使用帮助', name: store.actionTitle(), close: '关闭这个演示窗格？' })[store.dialog] || '练习操作');
 watch(/**
  * 观察当前打开的对话框类型。
  * @returns {string} 当前对话框类型。

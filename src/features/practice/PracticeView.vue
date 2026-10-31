@@ -86,15 +86,15 @@ function performAction(action, id) { simulator.value?.focus({ preventScroll: tru
       <div class="sim-topline"><span>herdr / {{ currentWorkspace.label }}</span><span id="simulation-disclaimer">教学模拟 · 无真实进程</span></div>
       <div class="sim-body">
         <aside v-if="store.session.sidebar" class="sim-sidebar scroll-section" tabindex="0" aria-label="模拟工作区">
-          <div class="section-label">WORKSPACES</div>
+          <div class="section-label">工作区</div>
           <button v-for="item in store.session.workspaces" :key="item.id" type="button" class="workspace-link" :class="{ active: item.id === currentWorkspace.id }" :disabled="!store.session.connected" :aria-current="item.id === currentWorkspace.id ? 'true' : 'false'" @click="performAction('select-workspace', item.id)">{{ item.label }} <small>{{ item.tabs.length }} 个标签页</small></button>
-          <div class="section-label">AGENTS</div><p class="muted">未运行智能体<br>真实状态在原生 Herdr 中查看</p>
+          <div class="section-label">智能体</div><p class="muted">未运行智能体</p>
         </aside>
         <div class="sim-main">
           <div class="sim-tabs" aria-label="模拟标签页"><button v-for="(item, index) in currentWorkspace.tabs" :key="item.id" type="button" :class="{ active: item.id === currentTab.id }" :disabled="!store.session.connected" :aria-current="item.id === currentTab.id ? 'true' : 'false'" @click="performAction('select-tab', item.id)">{{ index + 1 }} {{ item.label }}</button></div>
           <div class="pane-area"><PaneTree :tree="currentTab.tree" :focused="currentTab.focusedPane" :zoomed="currentTab.zoomed" /></div>
         </div>
-        <div v-if="!store.session.connected" class="sim-overlay"><section class="sim-panel scroll-section" tabindex="0"><div class="eyebrow">CLIENT DETACHED</div><h3>你离开了，工作不必结束。</h3><p>演示客户端已分离。下方输入 <code>herdr</code> 重新连接。</p><p class="muted">真实服务器可继续持有进程；本页只保留演示布局。</p></section></div>
+        <div v-if="!store.session.connected" class="sim-overlay"><section class="sim-panel scroll-section" tabindex="0"><h3>客户端已分离</h3><p>下方输入 <code>herdr</code> 重新连接。</p><p class="muted">本页只保留演示布局，不运行真实进程。</p></section></div>
         <div v-else-if="store.session.mode === 'help'" class="sim-overlay"><section class="sim-panel scroll-section" tabindex="0"><h3>快捷键帮助 · 本页实操范围</h3><p>每个动作前先按 <kbd>{{ store.prefixLabel }}</kbd>。</p><div class="reference-list"><div v-for="(action, key) in ACTION_KEYS" :key="key"><kbd>{{ keyForAction(action) }}</kbd> {{ ACTION_NAMES[action] }}</div></div><p class="muted">这不是完整原生键表。更多动作请查看官方文档。</p><BaseButton @click="sendKey('escape')">Esc 关闭帮助</BaseButton></section></div>
         <div v-else-if="store.session.mode === 'navigate'" class="sim-overlay"><section class="sim-panel scroll-section" tabindex="0"><h3>选择工作区</h3><p class="muted">↑ / ↓ 选择，Enter 确认，Esc 取消。</p><button v-for="(item, index) in store.session.workspaces" :key="item.id" type="button" class="workspace-link" :class="{ active: index === store.navigationIndex }" @click="performAction('select-workspace', item.id)">{{ item.label }} <small>{{ item.tabs.length }} 个标签页</small></button><BaseButton @click="sendKey('escape')">Esc 取消</BaseButton></section></div>
       </div>
