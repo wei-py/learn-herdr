@@ -1,6 +1,6 @@
-# Herdr 练习报
+# Herdr 学习站
 
-参照相邻 `learn-helix` 的报纸式阅读与实操体验制作的中文 Herdr 学习站。两个项目统一 Vue 3 JavaScript、暖纸色、本地字体、顶部导航、自由选课地图和共享组件；不再使用网站左侧课程栏。不是终端仿真器或 Herdr 管理客户端。
+中文 Herdr 学习站。与相邻 `learn-helix` 统一 Vue 3 JavaScript、黑白等宽界面、顶部导航、自由选课和共享组件；视觉参考 [openbitfun](https://www.openbitfun.com/) 的细线、直角与留白，不使用网站左侧课程栏。不是终端仿真器或 Herdr 管理客户端。
 
 在线学习：**https://wei-py.github.io/learn-herdr/**
 
@@ -24,7 +24,7 @@ pnpm build
 pnpm preview
 ```
 
-生产预览为 http://localhost:4175/；静态产物在 `dist/`，资源使用相对路径，可部署到静态站点的根目录或子目录。应用无需后端、数据库、账号、Herdr 安装或 API 密钥。字体来自本地系统，不加载外部字体、统计脚本或网络课程数据。
+生产预览为 http://localhost:4175/；静态产物在 `dist/`，资源使用相对路径，可部署到静态站点的根目录或子目录。应用无需后端、数据库、账号、Herdr 安装或 API 密钥。字体优先使用 IBM Plex Mono，并以系统等宽和中文无衬线回退；不加载统计脚本或网络课程数据。
 
 ## 统一技术栈与组件
 
@@ -33,7 +33,7 @@ pnpm preview
 - 跨业务工具统一选用 xe-utils；DOM 事件和虚拟列表复用 vue-hooks-plus。日期统一使用 dayjs；当前课程没有日期计算，不添加无用日期功能。
 - `src/shared/` 与 `learn-helix` 保持同源镜像，包括 BaseButton、BaseDialog、LearningShell、CourseMap、StudyGuide、VirtualList、类型及设计令牌。两仓库独立部署，不跨仓库引用文件；修改共享实现时必须同步另一份。
 - 业务按 `features/` 组织，全局状态位于 `stores/`，可复用纯领域逻辑位于 `domain/`，业务 feature 不直接依赖另一个 feature。
-- 字体统一为 14px / 1.65 系统无衬线正文、宋体标题、Georgia 英文报头和系统等宽代码。原生输入框、按钮、弹窗与选中卡片复用同一套纸色与边框。
+- 视觉以纯白、近黑文字、等宽字体、细分隔线和直角控件为主；标题常规字重，课程标题先于简短进度，课程列表直接展示内容，不使用蓝色强调、圆角卡片或阴影。模拟器以黑白反差区分当前工作区与焦点窗格；成功、错误保留语义状态色，窄屏按纵向重排。
 - 全部 JavaScript / Vue 脚本声明与回调使用中文 JSDoc；ESLint + `@antfu/eslint-config`、`eslint-plugin-jsdoc` 和声明覆盖规则检查具体类型、参数、返回值、标签、类型语法、中文说明及导入顺序。CI 不跳过检查。
 
 当前内容为本地同步数据，没有后端请求、表格、图片或异步课程加载；不生成空的 Axios/API SDK、虚假 Loading 或 Skeleton。引入这些实际场景时，再按请求、取消、错误态、占位尺寸与滚动规范实现。
