@@ -6,12 +6,15 @@ import { PRACTICES } from '../../domain/lessons.js';
 import { PREFIXES } from '../../domain/progress.js';
 import BaseButton from '../../shared/base/BaseButton.vue';
 import BaseDialog from '../../shared/base/BaseDialog.vue';
+import { useTheme } from '../../shared/theme.js';
 import { useLearningStore } from '../../stores/learning.js';
 /**
  * 对话框与表单全局状态。
  * @type {ReturnType<typeof useLearningStore>}
  */
 const store = useLearningStore();
+/** 网站外观偏好。 @type {ReturnType<typeof useTheme>} */
+const { theme, setTheme } = useTheme();
 /**
  * 命名输入焦点。
  * @type {import('vue').Ref<HTMLInputElement|null>}
@@ -43,6 +46,8 @@ function closeDialog() { store.dialog = ''; }
 <template>
   <BaseDialog :open="Boolean(store.dialog)" :title="title" @close="closeDialog">
     <template v-if="store.dialog === 'settings'">
+      <label class="theme-setting" for="theme-choice">外观主题<select id="theme-choice" name="theme" :value="theme" @change="setTheme($event.target.value)"><option value="auto">跟随系统</option><option value="light">浅色</option><option value="dark">深色</option></select></label>
+      <p class="muted">默认跟随系统，自动响应系统外观变化；手动选择仅影响本站。</p>
       <form @submit.prevent="store.savePrefix"><label for="prefix-choice">本页实操使用的前缀<select id="prefix-choice" v-model="store.prefixDraft" name="prefix"><option v-for="prefix in PREFIXES" :key="prefix" :value="prefix">{{ prefix }}</option></select></label><p class="muted">只修改学习站的前缀；速查与阅读仍标注官方默认值。不会更改真实 Herdr。前缀改变会重置本课演示，不清除掌握记录。</p><BaseButton type="submit" variant="primary">保存练习前缀</BaseButton></form>
       <h3>合并到真实配置</h3><p>路径：<code>~/.config/herdr/config.toml</code>。先备份，合并到已有 <code>[keys]</code>；不要覆盖整个文件，也不要重复表头。</p><div class="config-preview"><pre id="config-code" class="scroll-section" tabindex="0">{{ store.config }}</pre></div><div class="dialog-actions"><BaseButton @click="store.copyConfig">复制片段</BaseButton><BaseButton icon="export" @click="store.downloadConfig">下载 herdr-keys.toml</BaseButton></div><p id="config-status" role="status">{{ store.configStatus }}</p><p>原生 Herdr 的 UI 全局菜单 <code>reload config</code> 可更新客户端与选中服务器的配置；CLI <code>herdr server reload-config</code> 重载服务器设置。</p><a class="source-link" href="https://herdr.dev/zh-cn/docs/configuration/" target="_blank" rel="noopener noreferrer">官方依据</a>
     </template>

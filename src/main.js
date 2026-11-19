@@ -3,6 +3,7 @@ import { createApp } from 'vue';
 
 import App from './App.vue';
 
+import './shared/theme.js';
 import './style.css';
 
 /**

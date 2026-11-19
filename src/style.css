@@ -55,7 +55,7 @@ details.answer > :not(summary) { margin: 0 0 12px; }
 .sim-status { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; min-height: 31px; padding: 5px 10px; border-top: 1px solid var(--rule); background: var(--paper-muted); font: 500 12px/1.8 var(--font-mono); }
 .mode-badge { flex-shrink: 0; color: var(--accent); font-weight: 500; }
 .key-history { min-width: 0; color: var(--ink-muted); text-align: right; overflow-wrap: anywhere; }
-.sim-overlay { position: absolute; inset: 0; z-index: 800; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgb(23 25 24 / 24%); }
+.sim-overlay { position: absolute; inset: 0; z-index: 800; display: flex; align-items: center; justify-content: center; padding: 18px; background: var(--sim-overlay); }
 .sim-panel { width: min(100%, 410px); min-width: 0; max-height: 100%; padding: 20px; border: 1px solid var(--ink); border-radius: 0; background: var(--paper-raised); }
 .sim-panel h3 { margin-bottom: 7px; font-size: 24px; }
 .sim-panel p { margin-bottom: 14px; font-size: 14px; color: var(--ink-muted); }
@@ -109,7 +109,7 @@ details.answer > :not(summary) { margin: 0 0 12px; }
 .page-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px 22px; margin-top: 38px; padding: 18px 0 25px; border-top: 1px solid var(--rule); color: var(--ink-muted); font-size: 13px; }
 .page-footer a { color: inherit; }
 .dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; margin-top: 8px; padding-top: 15px; border-top: 1px solid var(--rule); }
-form label { display: grid; gap: 6px; }
+form label, .theme-setting { display: grid; gap: 6px; }
 form { min-width: 0; }
 @media (max-width: 640px) {
   .section-heading h2 { font-size: 28px; }
